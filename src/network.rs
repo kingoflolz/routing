@@ -2,7 +2,7 @@ use petgraph::Graph;
 use petgraph::graph::NodeIndex;
 use spade::HasPosition;
 use spade::rtree::{RTree};
-use cgmath::Point2;
+use nalgebra::Point2;
 
 #[derive(Clone, Debug)]
 pub struct Connection {
@@ -53,6 +53,7 @@ pub fn generate_graph() -> Graph<Node, Connection> {
     for i in graph.node_indices() {
         for j in rtree.lookup_in_circle(&graph[i].position, &1.1f32){
             graph.add_edge(i, j.node_index, c.clone());
+            graph.add_edge(j.node_index, i,c.clone());
         }
     }
 
