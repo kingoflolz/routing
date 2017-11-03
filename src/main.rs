@@ -3,8 +3,6 @@ extern crate spade;
 extern crate rand;
 extern crate cgmath;
 
-use petgraph::Graph;
-
 mod network;
 
 fn main() {

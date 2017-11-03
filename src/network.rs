@@ -10,7 +10,8 @@ pub struct Connection {
     //in ms
     bandwidth: f32,
     //in kbps
-    packet_loss: f32 //in percent
+    packet_loss: f32
+    //in percent
 }
 
 #[derive(Clone, Debug)]
@@ -32,14 +33,6 @@ impl HasPosition for MapNode {
     fn position(&self) -> Point2<f32> {
         self.position
     }
-}
-
-pub struct CoordData {
-
-}
-
-pub struct Map {
-    rtree: RTree<MapNode>,
 }
 
 pub fn generate_graph() -> Graph<Node, Connection> {
