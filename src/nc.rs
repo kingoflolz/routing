@@ -1,13 +1,8 @@
-use nalgebra::{VectorN, MatrixN};
-use nalgebra::{U10, U32};
-use petgraph::Graph;
-use petgraph::graph::NodeIndex;
+use nalgebra::VectorN;
+use nalgebra::U10;
 
 use rand::distributions::{IndependentSample, Range};
-use rand::{thread_rng, Rng};
-
-use network::{Node, Connection, best_route};
-use num_traits::identities::Zero;
+use rand::thread_rng;
 
 #[derive(Clone, Debug)]
 pub struct NCNodeData {

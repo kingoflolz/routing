@@ -1,19 +1,13 @@
 use petgraph::Graph;
 use petgraph::graph::NodeIndex;
 use petgraph::algo::dijkstra;
-use petgraph::visit::Bfs;
-use petgraph::{Incoming, Outgoing};
-
-use nalgebra::{MatrixMN, Dynamic, U8};
-
-use num_traits::Zero;
 
 use spade::HasPosition;
 use spade::rtree::RTree;
 
-use nc::{NCNodeData};
+use nc::NCNodeData;
 
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 use rand::distributions::{Sample, Range};
 
 #[derive(Clone, Debug)]
@@ -52,7 +46,7 @@ pub fn best_route(graph: &Graph<Node, Connection>, start: NodeIndex, end: NodeIn
     let m = dijkstra(&graph, start, Some(end), |e| e.weight().latency);
 
     assert!(m.contains_key(&end));
-    return m[&end]
+    return m[&end];
 }
 
 pub fn generate() -> Graph<Node, Connection> {
@@ -65,7 +59,8 @@ pub fn generate() -> Graph<Node, Connection> {
         for j in 0..20 {
             let p = [i as f32, j as f32];
             let index = graph.add_node(
-                Node { node_index: None,
+                Node {
+                    node_index: None,
                     level: 0,
                     added: 0,
                     position: p,
@@ -80,12 +75,9 @@ pub fn generate() -> Graph<Node, Connection> {
     for i in graph.node_indices() {
         for j in rtree.lookup_in_circle(&graph[i].position, &1.1f32) {
             graph.add_edge(i, j.node_index, c.clone());
-            println!("{:?}", &graph[j.node_index].nc);
+            // println!("{:?}", &graph[j.node_index].nc);
         }
     }
-
-    let w: MatrixMN<f32, Dynamic, U8> = <MatrixMN<f32, Dynamic, U8>>::from_element(200, 1.0f32);
-    let h: MatrixMN<f32, U8, Dynamic> = <MatrixMN<f32, U8, Dynamic>>::from_element(200, 1.0f32);
 
     let graph_other = &graph.clone();
     let mut rng = thread_rng();
@@ -93,11 +85,10 @@ pub fn generate() -> Graph<Node, Connection> {
     let mut random_node = Range::new(0, graph.node_count());
 
     for epochs in 0..100 {
-        for i in graph.node_weights_mut(){
-
+        for i in graph.node_weights_mut() {
             let mut landmarks: Vec<NodeIndex<u32>> = Vec::new();
 
-            for j in 0..20{
+            for _ in 0..20 {
                 landmarks.push(NodeIndex::new(random_node.sample(&mut rng)));
             }
 

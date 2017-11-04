@@ -8,8 +8,6 @@ extern crate typenum;
 mod network;
 mod nc;
 
-use network::Node;
-
 fn main() {
     let mut g = network::generate();
 
