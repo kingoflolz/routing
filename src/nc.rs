@@ -6,8 +6,8 @@ use rand::thread_rng;
 
 #[derive(Clone, Debug)]
 pub struct NCNodeData {
-    outgoing_vec: VectorN<f32, U10>,
-    incoming_vec: VectorN<f32, U10>
+    pub outgoing_vec: VectorN<f32, U10>,
+    pub incoming_vec: VectorN<f32, U10>
 }
 
 impl NCNodeData {

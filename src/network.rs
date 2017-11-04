@@ -10,6 +10,8 @@ use nc::NCNodeData;
 use rand::thread_rng;
 use rand::distributions::{Sample, Range};
 
+use std::collections::HashMap;
+
 #[derive(Clone, Debug)]
 pub struct Connection {
     latency: f32,
@@ -84,18 +86,36 @@ pub fn generate() -> Graph<Node, Connection> {
 
     let mut random_node = Range::new(0, graph.node_count());
 
+    let mut node_landmarks: HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>> = HashMap::new();
+
+    for i in graph.node_weights_mut() {
+        let mut landmarks: Vec<NodeIndex<u32>> = Vec::new();
+
+        for _ in 0..20 {
+            landmarks.push(NodeIndex::new(random_node.sample(&mut rng)));
+        }
+
+        for j in graph_other.neighbors(i.node_index.unwrap()) {
+            landmarks.push(j);
+        }
+
+        let mut landmarks_metric: Vec<(NodeIndex<u32>, f32)> = Vec::new();
+        let destinations = dijkstra(&graph_other, i.node_index.unwrap(), None, |e| e.weight().latency);
+        for j in landmarks{
+            let actual_metric = destinations[&j];
+            landmarks_metric.push((j, actual_metric));
+        }
+        node_landmarks.insert(i.node_index.unwrap(), landmarks_metric);
+    }
+
+    println!("Building landmarks/reference measurements");
+
     for epochs in 0..100 {
-        for i in graph.node_weights_mut() {
-            let mut landmarks: Vec<NodeIndex<u32>> = Vec::new();
+        for (i, landmarks) in &node_landmarks {
+            for &(j, actual) in landmarks {
+                let predicted = graph_other[j].nc.incoming_vec.dot(&graph_other[*i].nc.outgoing_vec);
 
-            for _ in 0..20 {
-                landmarks.push(NodeIndex::new(random_node.sample(&mut rng)));
             }
-
-            for j in graph_other.neighbors(i.node_index.unwrap()) {
-                landmarks.push(j);
-            }
-
             // println!("{:?}, {}", landmarks, landmarks.len());
         }
     }
