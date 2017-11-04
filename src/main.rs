@@ -1,12 +1,17 @@
 extern crate petgraph;
 extern crate spade;
 extern crate rand;
-extern crate cgmath;
+extern crate nalgebra;
+extern crate num_traits;
+extern crate typenum;
 
 mod network;
+mod nc;
+
+use network::Node;
 
 fn main() {
-    let g = network::generate_graph();
+    let mut g = network::generate();
 
     println!("Nodes: {}", g.node_count());
     println!("Edges: {}", g.edge_count());
