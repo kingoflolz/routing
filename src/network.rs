@@ -12,6 +12,10 @@ use rand::distributions::{Sample, Range};
 
 use std::collections::HashMap;
 
+use std::env;
+use std::fs::File;
+use std::io::prelude::*;
+
 #[derive(Clone, Debug)]
 pub struct Connection {
     latency: f32,
@@ -51,7 +55,74 @@ pub fn best_route(graph: &Graph<Node, Connection>, start: NodeIndex, end: NodeIn
     return m[&end];
 }
 
-pub fn generate() -> Graph<Node, Connection> {
+pub fn load_king_nodes() -> Graph<Node, Connection> {
+    let mut graph = Graph::<Node, Connection>::new();
+
+    let mut f = File::open("datasets/king/matrix").expect("King matrix dataset not found");
+
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)
+        .expect("something went wrong reading the file");
+
+    let mut split = contents.split("\n");
+
+    for i in split {
+        graph.add_node(Node {
+            node_index: None,
+            level: 0,
+            added: 0,
+            position: [0., 0.],
+            nc: NCNodeData::new()
+        });
+    };
+
+    graph
+}
+
+pub fn load_king_measurements() -> HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>> {
+    let mut graph = Graph::<Node, Connection>::new();
+
+    let mut f = File::open("datasets/king/matrix").expect("King matrix dataset not found");
+
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)
+        .expect("something went wrong reading the file");
+
+    let mut split = contents.split("\n");
+
+    let mut rng = thread_rng();
+    let mut node_landmarks: HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>> = HashMap::new();
+
+    let mut k = 0;
+    for mut i in split {
+        let mut node_measurements = Vec::new();
+        let mut landmarks_metric: Vec<(NodeIndex<u32>, f32)> = Vec::new();
+
+        for j in i.split(" ") {
+            if j.len() > 0 {
+                node_measurements.push(j.parse::<i32>().unwrap());
+            }
+        }
+
+        if node_measurements.len() > 0 {
+            let mut random_node = Range::new(0, node_measurements.len());
+
+            for _ in 0..64 {
+                let n = random_node.sample(&mut rng);
+                if node_measurements[n] as f32 >= 0. {
+                    landmarks_metric.push((NodeIndex::new(n), node_measurements[n] as f32 / 1000.));
+                }
+            }
+
+            node_landmarks.insert(NodeIndex::new(k), landmarks_metric);
+            k += 1;
+        }
+    };
+
+    node_landmarks
+}
+
+pub fn generate_flat_graph() -> Graph<Node, Connection> {
     let mut graph = Graph::<Node, Connection>::new();
 
     let c = Connection { latency: 10f32, bandwidth: 10f32, packet_loss: 1f32 };
@@ -88,6 +159,10 @@ pub fn generate() -> Graph<Node, Connection> {
 
     println!("Added edges");
 
+    graph
+}
+
+pub fn get_measurements(graph: &mut Graph<Node, Connection>) -> HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>> {
     let mut graph_other = graph.clone();
     let mut rng = thread_rng();
 
@@ -108,109 +183,94 @@ pub fn generate() -> Graph<Node, Connection> {
 
         let mut landmarks_metric: Vec<(NodeIndex<u32>, f32)> = Vec::new();
         let destinations = dijkstra(&graph_other, i.node_index.unwrap(), None, |e| e.weight().latency);
-        for j in landmarks{
+        for j in landmarks {
             let actual_metric = destinations[&j];
             landmarks_metric.push((j, actual_metric));
             // println!("{}, {}, {}", i.node_index.unwrap().index(), j.index(), actual_metric);
         }
         node_landmarks.insert(i.node_index.unwrap(), landmarks_metric);
     }
+    node_landmarks
+}
+
+pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>>) -> &mut Graph<Node, Connection> {
+    let mut graph_other = graph.clone();
+    let mut rng = thread_rng();
 
     // println!("Built landmarks/reference measurements");
 
     let mut n = 0;
-    let mut s = 0.;
-    let mut c = 0.;
-
-    let mut p = 0.;
-    let mut d = 0.;
 
     let mut m = Vec::new();
 
-    let mut enabled = [false; 400];
+    for epochs in 1..200 {
+        for (i, landmarks) in &node_landmarks {
+            for &(j, actual) in landmarks {
+                if *i != j {
+                    let predicted = graph_other[j].nc.incoming_vec.dot(&graph_other[*i].nc.outgoing_vec);
+                    let difference = actual - predicted;
 
-    let mut n_enabled = 1;
+                    m.push(difference.abs() / actual);
+                    n += 1;
 
-    enabled[0] = true;
+                    let (a_u, b_u) = calc_update(graph_other[j].nc.incoming_vec.clone(), graph_other[*i].nc.outgoing_vec.clone(), actual, graph[*i].nc.learn_rate);
 
-    for epochs in 1..1000 {
-        for (i, landmarks) in &mut node_landmarks {
-            if enabled[i.index()] {
-                for &mut (j, actual) in landmarks {
-                    if rng.next_f32() < 1./n_enabled as f32 {
-                        enabled[j.index()] = true;
-                        n_enabled += 1;
+                    //println!("{}", update);
+
+                    for i in a_u.clone().iter_mut() {
+                        *i *= 0.05;
                     }
-                    if *i != j && enabled[j.index()] {
-                        let predicted = graph_other[j].nc.incoming_vec.dot(&graph_other[*i].nc.outgoing_vec);
-                        let difference = actual - predicted;
 
-                        d += predicted;
+                    graph[j].nc.incoming_vec = graph_other[j].nc.incoming_vec + a_u;
 
-                        p += difference.abs() / actual;
-                        m.push(difference.abs() / actual);
-                        n += 1;
-                        s += difference.abs() * difference.abs();
-
-                        let (a_u, b_u) = calc_update(graph_other[j].nc.incoming_vec.clone(), graph_other[*i].nc.outgoing_vec.clone(), actual);
-
-                        //println!("{}", update);
-
-                        for i in a_u.clone().iter_mut() {
-                            //*i *= 0.05;
+                    for i in graph[j].nc.incoming_vec.iter_mut() {
+                        if *i < 0. {
+                            *i = 0.
                         }
+                    }
 
-                        graph[j].nc.incoming_vec = graph_other[j].nc.incoming_vec + a_u;
+                    graph[*i].nc.outgoing_vec = graph_other[*i].nc.outgoing_vec + b_u;
 
-                        for i in graph[j].nc.incoming_vec.iter_mut() {
-                            if *i < 0. {
-                                *i = 0.
-                            }
+                    for i in graph[*i].nc.outgoing_vec.iter_mut() {
+                        if *i < 0. {
+                            *i = 0.
                         }
+                    }
 
-                        graph[*i].nc.outgoing_vec = graph_other[*i].nc.outgoing_vec + b_u;
-
-                        for i in graph[*i].nc.outgoing_vec.iter_mut() {
-                            if *i < 0. {
-                                *i = 0.
-                            }
-                        }
-
-                        let better = graph[j].nc.incoming_vec.dot(&graph[*i].nc.outgoing_vec);
-                        let change = difference.abs() - (actual - better).abs();
-                        c += change;
-                        // println!("{}", change)
+                    let better = graph[j].nc.incoming_vec.dot(&graph[*i].nc.outgoing_vec);
+                    let change = difference.abs() - (actual - better).abs();
+                    if change > 1. {
+                        graph[*i].nc.learn_rate /= 2.;
+                        // println!("{}", graph[*i].nc.learn_rate);
                     }
                 }
-                // rng.shuffle(&mut landmarks);
-                // println!("{:?}, {}", landmarks, landmarks.len())
-            };
+            }
         }
         graph_other = graph.clone();
 
         m.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
+        let l = m.len();
+        m.truncate((l as f32 * 0.99) as usize);
         let l = m.len();
 
-        if epochs%1 == 0 {
-            println!("!!! {}, {}, {}, {}, {}, {}", s/n as f32, c/n as f32, p/n as f32, d/n as f32, m[l/2], n_enabled);
+        let s:f32 = m.iter().sum();
+
+        if epochs % 10 == 0 {
+            println!("!!! average error: {}, median error: (50){} (90){}", s / n as f32, m[l / 2], m[(9*l)/10]);
         }
 
         n = 0;
-        s = 0.;
-        c = 0.;
-        p = 0.;
-        d = 0.;
+        // println!("{:?}", m);
         m = Vec::new();
     }
 
     for i in graph.node_weights_mut() {
-        println!("{:?}", i.nc.outgoing_vec);
+        //println!("{:?}", i.nc.outgoing_vec);
     }
 
-    for (i, landmarks) in &mut node_landmarks {
+    for (i, landmarks) in &node_landmarks {
         //println!("{:?}, {:?}", i, graph[*i].nc.incoming_vec);
-        for &mut (j, actual) in landmarks {
+        for &(j, actual) in landmarks {
             if *i != j {
                 //let predicted = graph_other[j].nc.incoming_vec.dot(&graph_other[*i].nc.outgoing_vec);
                 //let difference = actual - predicted;
