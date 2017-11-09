@@ -33,7 +33,7 @@ pub fn calc_update(mut a: VectorN<f32, U10>, mut b: VectorN<f32, U10>, actual: f
     let diff = (diff).min(2.).max(-2.);
 
     for i in a_d.iter_mut() {
-        *i = *i * learn_rate * diff;
+        *i = *i * learn_rate * diff - b[n].abs()*0.01*learn_rate;
         n += 1;
     }
 
@@ -41,7 +41,7 @@ pub fn calc_update(mut a: VectorN<f32, U10>, mut b: VectorN<f32, U10>, actual: f
 
     n = 0;
     for i in b_d.iter_mut() {
-        *i = *i * learn_rate * diff;
+        *i = *i * learn_rate * diff - a[n].abs()*0.01*learn_rate;
         n += 1;
     }
 

@@ -107,7 +107,7 @@ pub fn load_king_measurements() -> HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, 
         if node_measurements.len() > 0 {
             let mut random_node = Range::new(0, node_measurements.len());
 
-            for _ in 0..64 {
+            for _ in 0..32 {
                 let n = random_node.sample(&mut rng);
                 if node_measurements[n] as f32 >= 0. {
                     landmarks_metric.push((NodeIndex::new(n), node_measurements[n] as f32 / 1000.));
@@ -194,7 +194,6 @@ pub fn get_measurements(graph: &mut Graph<Node, Connection>) -> HashMap<NodeInde
 }
 
 pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>>) -> &mut Graph<Node, Connection> {
-    let mut graph_other = graph.clone();
     let mut rng = thread_rng();
 
     // println!("Built landmarks/reference measurements");
@@ -204,65 +203,63 @@ pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<Node
     let mut m = Vec::new();
 
     for epochs in 1..200 {
-        for (i, landmarks) in &node_landmarks {
+        for (&i, landmarks) in &node_landmarks {
             for &(j, actual) in landmarks {
-                if *i != j {
-                    let predicted = graph_other[j].nc.incoming_vec.dot(&graph_other[*i].nc.outgoing_vec);
-                    let difference = actual - predicted;
+                let predicted = graph[j].nc.incoming_vec.dot(&graph[i].nc.outgoing_vec);
+                let difference = actual - predicted;
 
-                    m.push(difference.abs() / actual);
-                    n += 1;
+                m.push(difference.abs() / actual);
+                n += 1;
 
-                    let (a_u, b_u) = calc_update(graph_other[j].nc.incoming_vec.clone(), graph_other[*i].nc.outgoing_vec.clone(), actual, graph[*i].nc.learn_rate);
+                let (a_u, b_u) = calc_update(graph[j].nc.incoming_vec.clone(), graph[i].nc.outgoing_vec.clone(), actual, graph[i].nc.learn_rate);
 
-                    //println!("{}", update);
+                //println!("{}", update);
 
-                    for i in a_u.clone().iter_mut() {
-                        *i *= 0.05;
+                for i in a_u.clone().iter_mut() {
+                    *i *= 0.05;
+                }
+
+                graph[j].nc.incoming_vec = graph[j].nc.incoming_vec + a_u;
+
+                for i in graph[j].nc.incoming_vec.iter_mut() {
+                    if *i < 0. {
+                        *i = 0.0001
                     }
+                }
 
-                    graph[j].nc.incoming_vec = graph_other[j].nc.incoming_vec + a_u;
+                graph[i].nc.outgoing_vec = graph[i].nc.outgoing_vec + b_u;
 
-                    for i in graph[j].nc.incoming_vec.iter_mut() {
-                        if *i < 0. {
-                            *i = 0.
-                        }
+                for i in graph[i].nc.outgoing_vec.iter_mut() {
+                    if *i < 0. {
+                        *i = 0.0001
                     }
+                }
 
-                    graph[*i].nc.outgoing_vec = graph_other[*i].nc.outgoing_vec + b_u;
-
-                    for i in graph[*i].nc.outgoing_vec.iter_mut() {
-                        if *i < 0. {
-                            *i = 0.
-                        }
-                    }
-
-                    let better = graph[j].nc.incoming_vec.dot(&graph[*i].nc.outgoing_vec);
-                    let change = difference.abs() - (actual - better).abs();
-                    if change > 1. {
-                        graph[*i].nc.learn_rate /= 2.;
-                        // println!("{}", graph[*i].nc.learn_rate);
-                    }
+                let better = graph[j].nc.incoming_vec.dot(&graph[i].nc.outgoing_vec);
+                let change = difference.abs() - (actual - better).abs();
+                if change > 1. {
+                    graph[i].nc.learn_rate /= 2.;
+                    // println!("{}", graph[*i].nc.learn_rate);
                 }
             }
         }
-        graph_other = graph.clone();
-
-        m.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let l = m.len();
-        m.truncate((l as f32 * 0.99) as usize);
-        let l = m.len();
-
-        let s:f32 = m.iter().sum();
 
         if epochs % 10 == 0 {
-            println!("!!! average error: {}, median error: (50){} (90){}", s / n as f32, m[l / 2], m[(9*l)/10]);
+            m.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+            let mut percentile = [0.0f32; 10];
+            let l = m.len();
+            for i in 0..10{
+                percentile[i] = m[(i * (l-1)) / 10];
+            }
+            println!("!!! {:?}", percentile);
         }
 
         n = 0;
         // println!("{:?}", m);
         m = Vec::new();
     }
+    let mut graph_other = graph.clone();
 
     for i in graph.node_weights_mut() {
         //println!("{:?}", i.nc.outgoing_vec);
