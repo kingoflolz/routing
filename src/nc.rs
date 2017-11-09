@@ -4,10 +4,12 @@ use nalgebra::U10;
 use rand::distributions::{IndependentSample, Range};
 use rand::thread_rng;
 
+pub type NC = VectorN<f32, U10>;
+
 #[derive(Clone, Debug)]
 pub struct NCNodeData {
-    pub outgoing_vec: VectorN<f32, U10>,
-    pub incoming_vec: VectorN<f32, U10>,
+    pub outgoing_vec: NC,
+    pub incoming_vec: NC,
     pub learn_rate: f32,
 }
 
@@ -16,14 +18,14 @@ impl NCNodeData {
         let mut rng = thread_rng();
         let between = Range::new(0., 1.);
         NCNodeData {
-            outgoing_vec: <VectorN<f32, U10>>::from_fn(|_, _| between.ind_sample(&mut rng)),
-            incoming_vec: <VectorN<f32, U10>>::from_fn(|_, _| between.ind_sample(&mut rng)),
+            outgoing_vec: <NC>::from_fn(|_, _| between.ind_sample(&mut rng)),
+            incoming_vec: <NC>::from_fn(|_, _| between.ind_sample(&mut rng)),
             learn_rate: 0.05
         }
     }
 }
 
-pub fn calc_update(mut a: VectorN<f32, U10>, mut b: VectorN<f32, U10>, actual: f32, learn_rate: f32) -> (VectorN<f32, U10>, VectorN<f32, U10>) {
+pub fn calc_update(a: NC, b: NC, actual: f32, learn_rate: f32) -> (NC, NC) {
     let diff = actual - a.dot(&b);
 
     let mut a_d = b.clone();
