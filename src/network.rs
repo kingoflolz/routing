@@ -126,8 +126,8 @@ pub fn generate_flat_graph() -> Graph<Node, Connection> {
     println!("Starting");
 
     let mut rtree = RTree::new();
-    for i in 0..10 {
-        for j in 0..10 {
+    for i in 0..20 {
+        for j in 0..20 {
             let p = [i as f32, j as f32];
             let index = graph.add_node(
                 Node {
@@ -249,7 +249,6 @@ pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<Node
         // println!("{:?}", m);
         m = Vec::new();
     }
-    println!("!!! Total connections {}", n);
     println!("done");
 
     graph
