@@ -153,8 +153,8 @@ pub fn generate_flat_graph() -> Graph<Node, Connection> {
     graph
 }
 
-fn distance(a: &[f32; 2], b: &[f32; 2]) -> f32 {
-    ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt()
+fn latency(a: &[f32; 2], b: &[f32; 2]) -> f32 {
+    ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt() / 3e5
 }
 
 pub fn generate_hier_graph() -> Graph<Node, Connection> {
@@ -162,7 +162,8 @@ pub fn generate_hier_graph() -> Graph<Node, Connection> {
 
     let mut rng = thread_rng();
 
-    let mut area = Range::new(-1., 1.);
+    let mut area = Range::new(-1e6, 1e6);
+    let mut latency_jitter = Range::new(0., 10.);
     let mut items = vec!(Weighted { weight: 10, item: 2 },
                          Weighted { weight: 1, item: 2 });
     let mut wc = WeightedChoice::new(&mut items);
@@ -171,7 +172,7 @@ pub fn generate_hier_graph() -> Graph<Node, Connection> {
 
     let mut rtrees: Vec<RTree<MapNode>> = Vec::new();
 
-    let neighbors = [10, 5, 5, 0]; // same level
+    let neighbors = [10, 5, 5, 1]; // same level
     for level in 0..4 {
         let mut rtree = RTree::new();
         for _ in 0..10u32.pow(level + 1) {
@@ -189,7 +190,7 @@ pub fn generate_hier_graph() -> Graph<Node, Connection> {
             //to higher level
             if level > 0 {
                 for j in rtrees[(level-1) as usize].nearest_n_neighbors(&p, wc.sample(&mut rng)) {
-                    let c = Connection { latency: distance(&j.position, &p), bandwidth: 10f32, packet_loss: 1f32 };
+                    let c = Connection { latency: latency(&j.position, &p) + latency_jitter.sample(&mut rng), bandwidth: 10f32, packet_loss: 1f32 };
                     graph.update_edge(index, j.node_index, c.clone());
                     graph.update_edge(j.node_index, index, c.clone());
                 }
@@ -200,7 +201,7 @@ pub fn generate_hier_graph() -> Graph<Node, Connection> {
         for i in rtree.iter() {
             if neighbors[level as usize] > 0 {
                 for j in rtree.nearest_n_neighbors(&graph[i.node_index].position, neighbors[level as usize]) {
-                    let c = Connection { latency: distance(&i.position, &j.position), bandwidth: 10f32, packet_loss: 1f32 };
+                    let c = Connection { latency: latency(&i.position, &j.position) + latency_jitter.sample(&mut rng), bandwidth: 10f32, packet_loss: 1f32 };
                     graph.update_edge(i.node_index, j.node_index, c.clone());
                     graph.update_edge(j.node_index, i.node_index, c.clone());
                 }
