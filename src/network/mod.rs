@@ -1,6 +1,6 @@
 use petgraph::Graph;
 use petgraph::graph::NodeIndex;
-use petgraph::algo::dijkstra;
+use petgraph::algo::astar;
 
 use spade::HasPosition;
 
@@ -11,6 +11,7 @@ pub type Network = Graph<Node, Connection>;
 pub mod nc;
 pub mod load;
 pub mod generate;
+pub mod routing;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Connection {
@@ -42,9 +43,6 @@ impl HasPosition for MapNode {
     }
 }
 
-pub fn best_route(graph: &Graph<Node, Connection>, start: NodeIndex, end: NodeIndex) -> f32 {
-    let m = dijkstra(&graph, start, Some(end), |e| e.weight().latency);
-
-    assert!(m.contains_key(&end));
-    m[&end]
+pub fn best_route(graph: &Graph<Node, Connection>, start: NodeIndex, end: NodeIndex) -> (f32, Vec<NodeIndex>) {
+    astar(&graph, start, |finish| finish == end, |e| e.weight().latency, |_| 0.).unwrap()
 }

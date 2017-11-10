@@ -1,8 +1,7 @@
-use petgraph::Graph;
 use petgraph::graph::NodeIndex;
 
 use nc::NCNodeData;
-use network::{Node, Connection};
+use network::{Node, Network};
 
 use rand::thread_rng;
 use rand::distributions::{Sample, Range};
@@ -12,8 +11,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 
-pub fn load_king_nodes() -> Graph<Node, Connection> {
-    let mut graph = Graph::<Node, Connection>::new();
+pub fn load_king_nodes() -> Network {
+    let mut graph = Network::new();
 
     let mut f = File::open("datasets/king/matrix").expect("King matrix dataset not found");
 
