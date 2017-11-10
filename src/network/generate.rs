@@ -4,7 +4,7 @@ use petgraph::algo::dijkstra;
 
 use spade::rtree::RTree;
 
-use nc::{NCNodeData};
+use nc::NCNodeData;
 
 use rand::thread_rng;
 use rand::distributions::{Weighted, WeightedChoice,Sample, Range};

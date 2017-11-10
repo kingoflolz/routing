@@ -1,3 +1,7 @@
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+#![allow(dead_code)]
+
 extern crate petgraph;
 extern crate spade;
 extern crate rand;
@@ -24,7 +28,7 @@ fn main() {
     // generate new network and save
     let mut g = network::generate::generate_hier_graph();
     let landmarks = network::generate::calc_measurements(&mut g);
-    network::nc::init_nc(&mut g, landmarks);
+    network::nc::init_nc(&mut g, &landmarks);
     let out = serde_json::to_string(&g).unwrap();
     let mut file = File::create("network.json").unwrap();
     file.write_all(out.as_bytes()).unwrap();

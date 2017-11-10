@@ -21,7 +21,7 @@ pub fn load_king_nodes() -> Graph<Node, Connection> {
     f.read_to_string(&mut contents)
         .expect("something went wrong reading the file");
 
-    let split = contents.split("\n");
+    let split = contents.split('\n');
 
     for _ in split {
         graph.add_node(Node {
@@ -41,7 +41,7 @@ pub fn load_king_measurements() -> HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, 
     f.read_to_string(&mut contents)
         .expect("something went wrong reading the file");
 
-    let split = contents.split("\n");
+    let split = contents.split('\n');
 
     let mut rng = thread_rng();
     let mut node_landmarks: HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>> = HashMap::new();
@@ -51,13 +51,13 @@ pub fn load_king_measurements() -> HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, 
         let mut node_measurements = Vec::new();
         let mut landmarks_metric: Vec<(NodeIndex<u32>, f32)> = Vec::new();
 
-        for j in i.split(" ") {
-            if j.len() > 0 {
+        for j in i.split(' ') {
+            if !j.is_empty() {
                 node_measurements.push(j.parse::<i32>().unwrap());
             }
         }
 
-        if node_measurements.len() > 0 {
+        if !node_measurements.is_empty() {
             let mut random_node = Range::new(0, node_measurements.len());
 
             for _ in 0..32 {

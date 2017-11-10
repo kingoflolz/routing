@@ -46,5 +46,5 @@ pub fn best_route(graph: &Graph<Node, Connection>, start: NodeIndex, end: NodeIn
     let m = dijkstra(&graph, start, Some(end), |e| e.weight().latency);
 
     assert!(m.contains_key(&end));
-    return m[&end];
+    m[&end]
 }

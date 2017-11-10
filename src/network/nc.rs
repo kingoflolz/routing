@@ -19,22 +19,22 @@ fn clip_nc(a: &mut NC) {
     }
 }
 
-pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>>) -> &mut Graph<Node, Connection> {
+pub fn init_nc<'a>(graph: &'a mut Graph<Node, Connection>, node_landmarks: &HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>>) -> &'a mut Graph<Node, Connection> {
     let mut m = Vec::new();
 
     for epochs in 1..200 {
-        for (&i, landmarks) in &node_landmarks {
+        for (&i, landmarks) in node_landmarks {
             for &(j, actual) in landmarks {
                 let predicted = graph[j].nc.incoming_vec.dot(&graph[i].nc.outgoing_vec);
                 let difference = actual - predicted;
 
                 m.push(difference.abs() / actual);
 
-                let (a_u, b_u) = calc_update(graph[j].nc.incoming_vec.clone(), graph[i].nc.outgoing_vec.clone(), actual, graph[i].nc.learn_rate);
+                let (a_u, b_u) = calc_update(graph[j].nc.incoming_vec, graph[i].nc.outgoing_vec, actual, graph[i].nc.learn_rate);
 
-                graph[j].nc.incoming_vec = graph[j].nc.incoming_vec + a_u;
+                graph[j].nc.incoming_vec += a_u;
 
-                graph[i].nc.outgoing_vec = graph[i].nc.outgoing_vec + b_u;
+                graph[i].nc.outgoing_vec += b_u;
 
                 let better = graph[j].nc.incoming_vec.dot(&graph[i].nc.outgoing_vec);
                 let change = difference.abs() - (actual - better).abs();

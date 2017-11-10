@@ -28,7 +28,7 @@ impl NCNodeData {
 pub fn calc_update(a: NC, b: NC, actual: f32, learn_rate: f32) -> (NC, NC) {
     let diff = actual - a.dot(&b);
 
-    let mut a_d = b.clone();
+    let mut a_d = b;
 
     let mut n = 0;
 
@@ -39,7 +39,7 @@ pub fn calc_update(a: NC, b: NC, actual: f32, learn_rate: f32) -> (NC, NC) {
         n += 1;
     }
 
-    let mut b_d = a.clone();
+    let mut b_d = a;
 
     n = 0;
     for i in b_d.iter_mut() {
