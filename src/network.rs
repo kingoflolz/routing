@@ -15,7 +15,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 
-#[derive(Clone, Debug)]
+pub type Network = Graph<Node, Connection>;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Connection {
     latency: f32,
     //in ms
@@ -25,7 +27,7 @@ pub struct Connection {
     //in percent
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Node {
     node_index: Option<NodeIndex>,
     position: [f32; 2],
@@ -261,19 +263,15 @@ fn clip_nc(a: &mut NC) {
 }
 
 pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>>) -> &mut Graph<Node, Connection> {
-    let mut n = 0;
-
     let mut m = Vec::new();
 
     for epochs in 1..200 {
-        n = 0;
         for (&i, landmarks) in &node_landmarks {
             for &(j, actual) in landmarks {
                 let predicted = graph[j].nc.incoming_vec.dot(&graph[i].nc.outgoing_vec);
                 let difference = actual - predicted;
 
                 m.push(difference.abs() / actual);
-                n += 1;
 
                 let (a_u, b_u) = calc_update(graph[j].nc.incoming_vec.clone(), graph[i].nc.outgoing_vec.clone(), actual, graph[i].nc.learn_rate);
 

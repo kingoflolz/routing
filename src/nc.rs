@@ -6,7 +6,7 @@ use rand::thread_rng;
 
 pub type NC = VectorN<f32, U10>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NCNodeData {
     pub outgoing_vec: NC,
     pub incoming_vec: NC,
