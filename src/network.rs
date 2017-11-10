@@ -7,8 +7,8 @@ use spade::rtree::RTree;
 
 use nc::{NCNodeData, calc_update, NC};
 
-use rand::{thread_rng};
-use rand::distributions::{Sample, Range};
+use rand::thread_rng;
+use rand::distributions::{Weighted, WeightedChoice,Sample, Range};
 
 use std::collections::HashMap;
 
@@ -28,8 +28,6 @@ pub struct Connection {
 #[derive(Clone, Debug)]
 pub struct Node {
     node_index: Option<NodeIndex>,
-    level: u8,
-    pub added: usize,
     position: [f32; 2],
     nc: NCNodeData,
 }
@@ -68,8 +66,6 @@ pub fn load_king_nodes() -> Graph<Node, Connection> {
     for _ in split {
         graph.add_node(Node {
             node_index: None,
-            level: 0,
-            added: 0,
             position: [0., 0.],
             nc: NCNodeData::new()
         });
@@ -132,8 +128,6 @@ pub fn generate_flat_graph() -> Graph<Node, Connection> {
             let index = graph.add_node(
                 Node {
                     node_index: None,
-                    level: 0,
-                    added: 0,
                     position: p,
                     nc: NCNodeData::new()
                 }
@@ -159,7 +153,69 @@ pub fn generate_flat_graph() -> Graph<Node, Connection> {
     graph
 }
 
+fn distance(a: &[f32; 2], b: &[f32; 2]) -> f32 {
+    ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt()
+}
+
+pub fn generate_hier_graph() -> Graph<Node, Connection> {
+    let mut graph = Graph::<Node, Connection>::new();
+
+    let mut rng = thread_rng();
+
+    let mut area = Range::new(-1., 1.);
+    let mut items = vec!(Weighted { weight: 10, item: 2 },
+                         Weighted { weight: 1, item: 2 });
+    let mut wc = WeightedChoice::new(&mut items);
+
+    println!("Starting graph generation...");
+
+    let mut rtrees: Vec<RTree<MapNode>> = Vec::new();
+
+    let neighbors = [10, 5, 5, 0]; // same level
+    for level in 0..4 {
+        let mut rtree = RTree::new();
+        for _ in 0..10u32.pow(level + 1) {
+            let p = [area.sample(&mut rng), area.sample(&mut rng)];
+            let index = graph.add_node(
+                Node {
+                    node_index: None,
+                    position: p,
+                    nc: NCNodeData::new()
+                }
+            );
+            graph[index].node_index = Some(index);
+            rtree.insert(MapNode { position: p, node_index: index });
+
+            //to higher level
+            if level > 0 {
+                for j in rtrees[(level-1) as usize].nearest_n_neighbors(&p, wc.sample(&mut rng)) {
+                    let c = Connection { latency: distance(&j.position, &p), bandwidth: 10f32, packet_loss: 1f32 };
+                    graph.update_edge(index, j.node_index, c.clone());
+                    graph.update_edge(j.node_index, index, c.clone());
+                }
+            }
+        }
+
+        //same level connection
+        for i in rtree.iter() {
+            if neighbors[level as usize] > 0 {
+                for j in rtree.nearest_n_neighbors(&graph[i.node_index].position, neighbors[level as usize]) {
+                    let c = Connection { latency: distance(&i.position, &j.position), bandwidth: 10f32, packet_loss: 1f32 };
+                    graph.update_edge(i.node_index, j.node_index, c.clone());
+                    graph.update_edge(j.node_index, i.node_index, c.clone());
+                }
+            }
+        }
+        rtrees.push(rtree);
+    }
+    println!("Completed graph generation...");
+    graph
+}
+
+
 pub fn calc_measurements(graph: &mut Graph<Node, Connection>) -> HashMap<NodeIndex<u32>, Vec<(NodeIndex<u32>, f32)>> {
+    println!("Starting landmark measurements...");
+
     let graph_other = graph.clone();
     let mut rng = thread_rng();
 
@@ -187,10 +243,11 @@ pub fn calc_measurements(graph: &mut Graph<Node, Connection>) -> HashMap<NodeInd
         }
         node_landmarks.insert(i.node_index.unwrap(), landmarks_metric);
     }
+    println!("Completed landmark measurements");
     node_landmarks
 }
 
-fn clip_nc(a: &mut NC){
+fn clip_nc(a: &mut NC) {
     for i in a.iter_mut() {
         if *i < 0. {
             *i = 0.0001
@@ -232,7 +289,6 @@ pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<Node
             }
             clip_nc(&mut graph[i].nc.incoming_vec);
             clip_nc(&mut graph[i].nc.outgoing_vec);
-
         }
 
         if epochs % 10 == 0 {
@@ -240,8 +296,8 @@ pub fn init_nc(graph: &mut Graph<Node, Connection>, node_landmarks: HashMap<Node
 
             let mut percentile = [0.0f32; 9];
             let l = m.len();
-            for i in 1..10{
-                percentile[i-1] = m[(i * (l-1)) / 10];
+            for i in 1..10 {
+                percentile[i - 1] = m[(i * (l - 1)) / 10];
             }
             println!("!!! {:?}", percentile);
         }

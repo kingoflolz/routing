@@ -13,7 +13,7 @@ fn main() {
     // let k = network::load_king_measurements();
     // network::init_nc(&mut g, k);
 
-    let mut g = network::generate_flat_graph();
+    let mut g = network::generate_hier_graph();
     let landmarks = network::calc_measurements(&mut g);
     network::init_nc(&mut g, landmarks);
 
